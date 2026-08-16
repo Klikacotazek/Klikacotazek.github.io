@@ -1,141 +1,140 @@
 <!DOCTYPE html>
 <html lang="cs">
 <head>
-    <meta charset="UTF-8">
-    <title>PPL Fast-Programmer</title>
-    <style>
-        :root { --p: #2196f3; --s: #4caf50; --bg: #f4f4f9; }
-        body { font-family: sans-serif; margin: 0; display: flex; height: 100vh; background: var(--bg); }
-        
-        /* Seznam vlevo */
-        #sidebar { width: 250px; background: white; border-right: 1px solid #ddd; display: flex; flex-direction: column; }
-        .list { overflow-y: auto; flex-grow: 1; }
-        .q-item { padding: 8px 12px; border-bottom: 1px solid #eee; cursor: pointer; font-size: 0.8em; color: #666; }
-        .q-item.active { background: #e3f2fd; color: #2196f3; font-weight: bold; }
-        .q-item.done { border-left: 5px solid var(--s); color: #333; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRRP KOPIS</title>
 
-        /* Hlavní plocha */
-        #workspace { flex-grow: 1; padding: 40px; display: flex; flex-direction: column; align-items: center; }
-        .card { background: white; width: 100%; max-width: 700px; padding: 30px; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
-        .q-title { font-size: 1.4em; font-weight: bold; margin-bottom: 25px; color: #1a237e; }
-        
-        .ans-row { display: flex; align-items: center; margin: 10px 0; padding: 15px; border: 2px solid #eee; border-radius: 8px; cursor: pointer; transition: 0.2s; }
-        .ans-row:hover { border-color: var(--p); background: #f0f7ff; }
-        .ans-row.selected { border-color: var(--s); background: #e8f5e9; }
-        .key-badge { background: #333; color: white; padding: 2px 8px; border-radius: 4px; margin-right: 15px; font-weight: bold; }
+<style>
 
-        .stats { margin-bottom: 20px; font-weight: bold; color: #555; }
-        .controls { margin-top: 30px; display: flex; gap: 10px; }
-        .btn { padding: 12px 25px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        .btn-save { background: var(--s); color: white; }
-    </style>
+:root{
+    --color-pcr: #000080; /* PČR - police blue */
+    --color-hzs: #c00c0f; /* HZS - fire red */
+    --color-zzs: #ffd500e5; /* ZZS - medical green */
+}
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+    background:#0f1115;
+    color:white;
+    font-family:Segoe UI,Tahoma,sans-serif;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+}
+
+header{
+    background:#D70C0F;
+    padding:20px;
+    text-align:center;
+    font-size:32px;
+    font-weight:bold;
+    letter-spacing:3px;
+    box-shadow:0 0 15px rgba(0,0,0,.5);
+}
+
+main{
+    flex:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:40px 20px;
+}
+
+.slozky{
+    display:grid;
+    grid-template-rows:repeat(3,1fr);
+    gap:24px;
+    max-width:900px;
+    width:100%;
+}
+
+.slozka{
+    background:#1a1f28;
+    border-radius:14px;
+    padding:40px 20px;
+    text-align:center;
+    text-decoration:none;
+    color:white;
+    box-shadow:0 0 12px rgba(0,0,0,.5);
+    transition:transform .15s ease, background .15s ease, border-color .15s ease;
+    border:2px solid transparent;
+}
+
+/* apply service colors */
+.slozka[data-key="pcr"]{ background: var(--color-pcr); }
+.slozka[data-key="hzs"]{ background: var(--color-hzs); }
+.slozka[data-key="zzs"]{ background: var(--color-zzs); }
+
+.slozka:hover{
+    transform:translateY(-4px);
+    background:#242c38;
+    border-color:#b30000;
+}
+
+.slozka .ikona{
+    font-size:48px;
+    margin-bottom:16px;
+    display:block;
+}
+
+.slozka .nazev{
+    font-size:22px;
+    font-weight:bold;
+    letter-spacing:1px;
+}
+
+.slozka .popis{
+    font-size:13px;
+    color:#8b98ab;
+    margin-top:8px;
+}
+
+@media(max-width:700px){
+    .slozky{
+        grid-template-columns:1fr;
+    }
+}
+
+</style>
 </head>
+
 <body>
 
-<div id="sidebar">
-    <div style="padding: 15px; border-bottom: 1px solid #ddd;">
-        <input type="file" id="fileInput" accept=".json" style="width: 100%;">
-    </div>
-    <div id="qList" class="list"></div>
+<header>
+Integrované Operační Středisko
+</header>
+
+<main>
+
+<div class="slozky">
+
+<a class="slozka" href="PČR.html" data-key="pcr">
+<span class="ikona">🚓</span>
+<span class="nazev">PČR</span>
+<span class="popis">Policie České republiky</span>
+</a>
+
+<a class="slozka" href="HZS.html" data-key="hzs">
+<span class="ikona">🚒</span>
+<span class="nazev">HZS</span>
+<span class="popis">Hasičský záchranný sbor</span>
+</a>
+
+<a class="slozka" href="ZZS.html" data-key="zzs">
+<span class="ikona">🚑</span>
+<span class="nazev">ZZS</span>
+<span class="popis">Zdravotnická záchranná služba</span>
+</a>
+
 </div>
 
-<div id="workspace">
-    <div class="stats" id="statLine">Nahrajte JSON soubor</div>
-    
-    <div id="mainCard" class="card" style="display:none;">
-        <div class="q-title" id="qText"></div>
-        <div id="ansBox"></div>
-        
-        <div class="controls">
-            <button class="btn" onclick="prev()">⬅ Zpět (Šipka vlevo)</button>
-            <button class="btn btn-save" onclick="download()">💾 STÁHNOUT JSON</button>
-            <button class="btn" onclick="next()">Vpřed (Šipka vpravo) ➡</button>
-        </div>
-        <p style="color: #888; margin-top: 20px; font-size: 0.9em;">
-            Tip: Používej číselné klávesy <strong>1, 2, 3, 4</strong> pro okamžité uložení a skok na další.
-        </p>
-    </div>
-</div>
-
-<script>
-    let questions = [];
-    let curIdx = 0;
-
-    document.getElementById('fileInput').addEventListener('change', function(e) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            questions = JSON.parse(event.target.result);
-            document.getElementById('mainCard').style.display = 'block';
-            refresh();
-        };
-        reader.readAsText(e.target.files[0]);
-    });
-
-    function refresh() {
-        if (questions.length === 0) return;
-        const q = questions[curIdx];
-        
-        // UI texty
-        document.getElementById('qText').innerText = `${q.id}. ${q.question}`;
-        document.getElementById('statLine').innerText = `Otázka ${curIdx + 1} z ${questions.length} | Hotovo: ${questions.filter(x => x.correct !== null).length}`;
-        
-        // Seznam vlevo
-        const list = document.getElementById('qList');
-        list.innerHTML = '';
-        questions.forEach((item, i) => {
-            const div = document.createElement('div');
-            div.className = `q-item ${i === curIdx ? 'active' : ''} ${item.correct !== null ? 'done' : ''}`;
-            div.innerText = `${item.id}. ${item.question.substring(0, 30)}...`;
-            div.onclick = () => { curIdx = i; refresh(); };
-            list.appendChild(div);
-        });
-        document.querySelector('.active').scrollIntoView({ block: 'nearest' });
-
-        // Odpovědi
-        const box = document.getElementById('ansBox');
-        box.innerHTML = '';
-        q.answers.forEach((ans, i) => {
-            const div = document.createElement('div');
-            div.className = `ans-row ${q.correct === i ? 'selected' : ''}`;
-            div.innerHTML = `<span class="key-badge">${i + 1}</span> <span>${ans}</span>`;
-            div.onclick = () => saveAndNext(i);
-            box.appendChild(div);
-        });
-    }
-
-    function saveAndNext(index) {
-        questions[curIdx].correct = index;
-        if (curIdx < questions.length - 1) {
-            curIdx++;
-            refresh();
-        } else {
-            refresh();
-            alert("Dosáhl jsi konce!");
-        }
-    }
-
-    function next() { if (curIdx < questions.length - 1) { curIdx++; refresh(); } }
-    function prev() { if (curIdx > 0) { curIdx--; refresh(); } }
-
-    window.addEventListener('keydown', e => {
-        if (e.key >= '1' && e.key <= '9') {
-            const idx = parseInt(e.key) - 1;
-            if (questions[curIdx] && idx < questions[curIdx].answers.length) {
-                saveAndNext(idx);
-            }
-        }
-        if (e.key === 'ArrowRight') next();
-        if (e.key === 'ArrowLeft') prev();
-    });
-
-    function download() {
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(questions, null, 2));
-        const a = document.createElement('a');
-        a.setAttribute("href", dataStr);
-        a.setAttribute("download", "programované_otazky.json");
-        a.click();
-    }
-</script>
+</main>
 
 </body>
 </html>

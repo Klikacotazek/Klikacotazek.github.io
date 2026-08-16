@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>CRRP KOPIS</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+
+<style>
+*{ margin:0; padding:0; box-sizing:border-box; }
+body{ background:#0f1115; color:white; font-family:Segoe UI,Tahoma,sans-serif; }
+header{ background:#8b0000; padding:15px; text-align:center; font-size:28px; font-weight:bold; letter-spacing:2px; box-shadow:0 0 15px rgba(0,0,0,.5); position:relative; }
+.auth-widget{ position:absolute; right:15px; top:50%; transform:translateY(-50%); font-size:13px; font-weight:normal; letter-spacing:0; display:flex; align-items:center; gap:8px; }
+.auth-widget button{ width:auto; padding:6px 12px; font-size:12px; margin:0; }
+.auth-widget .odhlasit-btn{ background:#2b3240; }
+.auth-widget .odhlasit-btn:hover{ background:#3a4256; }
+.auth-widget .prihlaseny-email{ color:#ffd1d1; max-width:250px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+@media(max-width:760px){
+    .auth-widget{ position:static; transform:none; justify-content:center; margin-top:10px; }
+}
+
+.potreba-prihlaseni{ background:#242c38; border-radius:8px; padding:14px; font-size:13px; color:#c3ccd8; text-align:center; margin-bottom:10px; }
+.potreba-prihlaseni button{ margin-top:10px; }
+.container{ display:grid; grid-template-columns:420px 1fr; gap:15px; padding:15px; }
+.card{ background:#1a1f28; border-radius:12px; padding:15px; box-shadow:0 0 10px rgba(0,0,0,.5); }
+.card h2{ margin-bottom:10px; }
+input, select, textarea{ width:100%; margin-bottom:10px; padding:10px; border:none; border-radius:6px; background:#2b3240; color:white; }
+button{ width:100%; border:none; border-radius:6px; padding:10px; background:#b30000; color:white; font-weight:bold; cursor:pointer; margin-bottom:5px; }
+button:hover{ background:#d60000; }
+.zrusit-editaci{ background:#2b3240; }
+.zrusit-editaci:hover{ background:#3a4256; }
+.map-container{ position:relative; width:100%; }
+.map-image{ width:100%; border-radius:10px; cursor:crosshair; }
+.marker{ position:absolute; transform:translate(-50%,-50%); font-size:26px; cursor:pointer; z-index:5; }
+.marker:hover{ transform:translate(-50%,-50%) scale(1.2); }
+.marker-archiv{ position:absolute; transform:translate(-50%,-50%); font-size:22px; cursor:pointer; z-index:4; opacity:.55; filter:grayscale(60%); }
+.marker-archiv:hover{ opacity:1; filter:grayscale(0%); transform:translate(-50%,-50%) scale(1.25); }
+.archiv-mapa-info{ display:none; align-items:center; justify-content:space-between; gap:10px; background:#1c3a5e; color:#cfe3ff; padding:8px 12px; border-radius:8px; font-size:12px; margin-top:8px; margin-bottom:12px; }
+.archiv-mapa-info button{ width:auto; padding:5px 10px; font-size:11px; margin:0; background:rgba(255,255,255,.15); }
+.archiv-mapa-info button:hover{ background:rgba(255,255,255,.3); }
+.waypoint-wrapper{ position:absolute; transform:translate(-50%,-50%); z-index:10; display:flex; flex-direction:column; align-items:center; cursor:pointer; animation:waypointPop .25s ease; }
+
+.mapova-ikona {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+}
+
+@keyframes waypointPop{
+    from{transform:translate(-50%,-50%) scale(0);}
+    to{transform:translate(-50%,-50%) scale(1);}
+}
+
+.waypoint-marker{ font-size:30px; line-height:1; filter:drop-shadow(0 0 6px rgba(0,140,255,.9)); }
+.waypoint-label{ background:#0077ff; color:#fff; font-size:12px; font-weight:bold; padding:3px 8px; border-radius:5px; margin-bottom:4px; white-space:nowrap; box-shadow:0 0 6px rgba(0,0,0,.5); }
+.waypoint-hint{ font-size:12px; color:#8b98ab; text-align:center; margin-top:8px; }
+#clearWaypointBtn{ display:none; background:#2b3240; margin-top:8px; }
+#clearWaypointBtn:hover{ background:#3a4256; }
+.section-title{ margin-top:15px; margin-bottom:10px; font-size:20px; }
+.dispatch-list{ max-height:300px; overflow-y:auto; }
+.dispatch-card{ background:#242c38; padding:10px; border-radius:8px; margin-bottom:10px; }
+.dispatch-card b{ color:#ffb5b5; }
+.badge-active{ background:#1c7a1c; padding:3px 8px; border-radius:5px; font-size:12px; }
+.badge-ended{ background:#7a1c1c; padding:3px 8px; border-radius:5px; font-size:12px; }
+.modal{ display:none; position:fixed; inset:0; background:rgba(0,0,0,.8); z-index:999; }
+.modal-content{ width:700px; max-width:95%; margin:5% auto; background:#1a1f28; border-radius:12px; padding:20px; }
+.modal-content h2{ margin-bottom:15px; }
+.close-btn{ margin-top:15px; }
+.filter-bar{ display:flex; flex-wrap:wrap; gap:10px; margin-bottom:15px; }
+.filter-bar select, .filter-bar input{ margin:0; flex:1; min-width:120px; }
+.filter-bar button{ width:auto; white-space:nowrap; flex:1; min-width:150px; }
+
+@media(max-width:1000px){
+    .container{ grid-template-columns:1fr; }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <div id="authWidget" class="auth-widget"></div>
+    Operační středisko HZS
+</header>
+
+<div class="container">
+    <div class="card">
+        <h2>Vyhlašování výjezdů</h2>
+        
+        <div id="potrebaPrihlaseni" class="potreba-prihlaseni" style="display:none">
+            Pro vyhlašování a správu výjezdů se musíte přihlásit.
+            <button onclick="otevriPrihlaseniModal()">Přihlásit se</button>
+        </div>
+
+        <div id="formularVyjezdu">
+            <select id="typ"></select>
+            <select id="podtyp"></select>
+            <input id="technika" placeholder="Technika" />
+            <input id="lokace" list="lokaceList" placeholder="Lokace" />
+            <datalist id="lokaceList"></datalist>
+            <textarea id="poznamka" rows="4" placeholder="Poznámka"></textarea>
+            <textarea id="clenove" rows="4" placeholder="Zasahující hasiči"></textarea>
+            
+            <button id="tlacitkoOdeslat" onclick="pridatVyjezd()">Vyhlásit výjezd</button>
+            <button id="tlacitkoZrusitEditaci" class="zrusit-editaci" style="display:none" onclick="zrusEditaci()">Zrušit úpravu</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Přehled výjezdů</h2>
+        
+        <div class="filter-bar">
+            <select id="filterTyp">
+                <option value="">Všechny typy</option>
+            </select>
+            <button type="button" class="zrusit-editaci archiv-btn" onclick="otevriArchivModal()">📁 Ukončené (archiv)</button>
+        </div>
+
+        <div class="map-container">
+            <img src="CZECH_REALM_MAPA.jpg" class="map-image">
+            <div id="markers"></div>
+            <div id="archivMarkers"></div>
+            <div id="waypointLayer"></div>
+        </div>
+
+        <div class="waypoint-hint">Klikněte na mapu pro umístění waypointu na přesné místo (zobrazí i nejbližší orientační bod)</div>
+        <button id="clearWaypointBtn" onclick="zrusitWaypoint()">Zrušit waypoint</button>
+
+        <div class="section-title">Aktivní výjezdy</div>
+        <div id="aktivni" class="dispatch-list"></div>
+    </div>
+</div>
+
+<!-- Modals -->
+<div id="detailModal" class="modal">
+    <div class="modal-content">
+        <h2>Detail výjezdu</h2>
+        <div id="detailObsah"></div>
+        <button class="close-btn" onclick="zavriDetail()">Zavřít</button>
+    </div>
+</div>
+
+<div id="prihlaseniModal" class="modal">
+    <div class="modal-content" style="width:380px;">
+        <h2>Přihlášení / Registrace</h2>
+        <input id="prihlaseniEmail" type="email" placeholder="Uživatelské jméno" autocomplete="username" />
+        <input id="prihlaseniHeslo" type="password" placeholder="Heslo" autocomplete="current-password" />
+        <div id="prihlaseniChyba" style="display:none;color:#ff8080;font-size:13px;margin-bottom:10px;"></div>
+        
+        <button onclick="provestPrihlaseni()">Přihlásit se</button>
+        <button class="zrusit-editaci" onclick="provestRegistraci()" style="margin-bottom:15px;">Registrovat se</button>
+        <button class="zrusit-editaci close-btn" onclick="zavriModal('prihlaseniModal')">Zavřít</button>
+    </div>
+</div>
+
+<div id="archivModal" class="modal">
+    <div class="modal-content">
+        <h2>Databáze ukončených výjezdů</h2>
+        <div class="filter-bar" style="align-items:center; gap:5px;">
+            <span style="font-size:12px; color:#8b98ab;">Od:</span>
+            <input type="date" id="archivDatumOd" onchange="vykresliArchivModal()" style="margin:0;" />
+            <span style="font-size:12px; color:#8b98ab;">Do:</span>
+            <input type="date" id="archivDatumDo" onchange="vykresliArchivModal()" style="margin:0;" />
+            <select id="archivTyp" onchange="vykresliArchivModal()" style="margin:0;">
+                <option value="">Všechny typy</option>
+            </select>
+            <button type="button" class="zrusit-editaci" onclick="vycistiArchivFiltr()" style="margin:0;">Vymazat filtr</button>
+         </div>
+        <div id="archivMapaInfo" class="archiv-mapa-info"></div>
+        <div id="archivSeznam" class="dispatch-list" style="max-height:55vh;"></div>
+        <button class="close-btn" onclick="zavriModal('archivModal')">Zavřít</button>
+    </div>
+</div>
+
+<script>
+// ==========================================
+// DATA A SOUŘADNICE
+// ==========================================
+const typyUdalosti = {
+    "POŽÁR":["NÍZKÉ BUDOVY","VÝŠKOVÉ BUDOVY","PRŮMYSLOVÉ,ZEMĚDĚLSKÉ OBJEKTY,SKLADY","Signalizace EPS","SHROMAŽDIŠTĚ OSOB","LESNÍ POROST","PODZEMNÍ PROSTORY,TUNELY","POLNÍ POROST, TRÁVA","ODPAD, OSTATNÍ","KŮLNY, PŘÍSTŘEŠKY","SKLÁDKA","CHEMICKÝ PRŮMYSL","TRAFOSTANICE, ROZVODNY","DOPRAVNÍ PROSTŘEDKY","NEMOCNICE, LDN, DOMOVY DŮCHODCŮ","KABELOVÉ KANÁLY, KOLEKTORY","POPELNICE, KONTEJNER","SAZÍ V KOMÍNĚ","Výbuch munice, muniční sklady"],
+    "DOPRAVNÍ NEHODA":["SE ZRANĚNÍM","PROSTŘEDEK HROMADNÉ PŘEPRAVY OSOB","VYPROŠTĚNÍ OSOB","UVOLNĚNÍ KOMUNIKACE, ODTAŽENÍ","ÚKLID VOZOVKY","ŽELEZNIČNÍ","LETECKÁ"],
+    "ÚNIK NEBEZPEČNÝCH LÁTEK":["NA POZEMNÍ KOMUNIKACI","DO PŮDY","NA (DO) VODNÍ PLOCHU(Y)","DO OVZDUŠÍ","Nález podezření na biologický agens"],
+    "TECHNICKÁ POMOC":["ODSTRANĚNÍ STROMU","SPOLUPRÁCE SE SLOŽKAMI IZS","LIKVIDACE OBTÍŽNÉHO HMYZU","DESTRUKCE OBJEKTU","NÁHRADA NEFUNKČNÍHO ZAŘÍZENÍ","OTEVŘENÍ UZAVŘENÝCH PROSTOR","Otevření bytu záchrana osoby","Otevření bytu potraviny","Otevření bytu teče voda","ODSTRANĚNÍ NEBEZPEČNÝCH STAVŮ","ODSTRAŇOVÁNÍ PŘEKÁŽEK","ČERPÁNÍ VODY","MĚŘENÍ KONCENTRACÍ","MONITORING","Útok aktivního střelce","Nástražný výbušný systém","Pátrání po pohřešované osobě","Demonstrování s úmyslem sebevraždy"],
+    "ZÁCHRANA OSOB A ZVÍŘAT":["Z VÝŠKY","Z HLOUBKY","UZAVŘENÉ PROSTORY, VÝTAH","ZASYPANÉ,ZAVALENÉ","AED","Z VODY","Z TERÉNU","ŽÁDOST ZDRAVOTNICKÉHO ZAŘÍZENÍ","TRANSPORT PACIENTA"],
+    "JINÁ UDÁLOST":["RADIAČNÍ NEHODA, HAVÁRIE","EVAKUACE A OCHRANA OBYVATEL PLOŠNÁ","JINÉ","INFORMACE PRO DOPRAVU","Požár","Větrná smršť","Povodeň"],
+    "TECHNOLOGICKÝ TEST":["TECHNOLOGICKÝ TEST"],
+    "FORMÁLNĚ ZALOŽENÁ UDÁLOST":["Komunikace se zahraničím","HUMANITÁRNÍ POMOC","OSTATNÍ FORMÁLNĚ ZALOŽENÁ UDÁLOST","Přijetí signalizace EPS bez účasti JPO","Demonstrování sebevraždy bez účasti JPO","Využití JSVV mimo vyhlašování poplachu JSDHO","Svolání členů KŠ,PK atp. cvičné i ostré","Události, řešené bez JPO","ŽIVELNÍ POHROMA"]
+};
+
+const lokace = ["A1","A14","A15","A16","A17","A2","A3","A4","Autobusové nádraží","B10","B11","B13","B14","B19","B2","B20","B21","B22","B3","B5","B6","B7","Eggdog","Eggdog Smyčka","Eggdogova","Kocourov","Kruhový objezd","Křižovatka/Psíkov","Křižovatka/Rakvice","Nemocnice","Podolí","Policejní stanice","Psíkov","Psíkov náměstí","Rakvice","Rakvice/Náměstí","Rakvice/Osada","REALM ARENA","Sídliště","Spawn Civilistů","Spojovací","Staroměstská","Tunel","U Jednoty","U Letiště","U Malých rozjezdů","U školy","U Závodního okruhu","Úzká","Závodní okruh"];
+
+const coords = {
+  "A1": [[43.6,35.1],[42.1,40.2],[42.2,45.6],[43.2,49.6],[44.4,53.5],[45.3,57.8],[46.7,62.4],[47.6,66.7],[48.7,70.6],[50.2,74.9],[52,77.3],[54.6,79],[57.8,79.5],[60.8,80.2],[63.3,80.2],[66.8,80.3],[70.6,80.4]],
+  "A14": [[61.9,88],[64.6,88.1],[67.7,88.3],[70.3,88],[73,88.3],[75.8,88.7]],
+  "A15": [[43,84],[45.2,85.7],[47.8,87.1],[51.1,87.6],[53.9,87.8]],
+  "A16": [[35.5,65],[35.5,69],[35.6,72.2],[36.7,75.7],[38.2,79],[39.7,81.2]],
+  "A17": [[38,42],[38.3,46.1],[38.3,50.7],[37.5,54.9],[37,58.6]],
+  "A2": [[62.4,36.1],[65.7,39.2],[68.5,43],[58.4,32.6],[54.3,29.2],[50.2,29.1],[70.7,47.1],[72,51]],
+  "A3": [],
+  "A4": [[46,17],[47.1,13.5],[48.7,10.8],[44.6,20.4],[43.1,23.8],[41,26.7],[39.2,29.5],[37.9,32.8],[37.5,36.3]],
+  "Autobusové nádraží": [[45.9,40.6],[47.6,40.6],[47.9,43.3],[45.8,43.1]],
+  "B10": [[67,65]], "B11": [[60,58]], "B13": [],
+  "B14": [[55.5,74.7],[56.9,76.2],[53.7,72.3],[52.3,69.3],[50.9,65.3],[50.7,62],[51,58.6],[51.7,55.5],[52.8,52.4],[54.6,50]],
+  "B19": [[63,98],[56.6,96.7],[66.4,97],[68.9,95.3],[71.4,93.5],[73.5,91.8],[74.7,89.9],[59,98.1],[53,94.2]],
+  "B2": [[50.9,39.5],[52.6,40.9],[54.8,42.2],[56.1,44.3],[56.8,45.9],[49.2,38.6]],
+  "B20": [[31.8,68.5],[29.4,62.9],[27.8,60.1],[32.9,74.3],[33.7,78.4],[34.7,82.8]],
+  "B21": [[26.4,49.9],[26.2,53.8],[27.1,46.5],[28.5,43.9],[30.2,41.2],[33,38.8]],
+  "B22": [[17,32],[18.2,28.1],[21.3,24.1],[24.5,21.2],[16.8,36.3],[16.3,40.5]],
+  "B3": [[65,48]],
+  "B5": [[61.3,21],[60.6,18.5],[60.1,15.7],[59.5,12.7],[60.1,10]],
+  "B6": [[68,38],[66.6,36],[64.7,33.8],[63.5,31.2],[62.6,28],[61.9,24.3]],
+  "B7": [[76,48],[76,50.8],[73.8,45.6],[71.4,42.4],[69.5,40]],
+  "Eggdog": [[82.7,53.5],[87.9,53.9],[86.9,61.3],[87.5,70.9],[91.9,66.1],[91.4,58.6]],
+  "Eggdog Smyčka": [[87,82]],
+  "Eggdogova": [[79,63],[78.4,54.1],[77.9,71]],
+  "Kocourov": [[43,92],[37.2,87.9],[46.7,94.3],[50.2,94.6]],
+  "Kruhový objezd": [[58,48]],
+  "Křižovatka/Psíkov": [[29.8,19.6]],
+  "Křižovatka/Rakvice": [[26.6,56.6]],
+  "Nemocnice": [[63,75]],
+  "Podolí": [[55,4],[52.7,8.8],[56.3,6.8],[62.6,1.8],[60.2,0.4],[59.8,4.7],[57.1,1.6]],
+  "Policejní stanice": [[62,62]],
+  "Psíkov": [[29,35]],
+  "Psíkov náměstí": [[29.8,40]],
+  "Rakvice": [[15,54.5]],
+  "Rakvice/Náměstí": [[17.3,57.1]],
+  "Rakvice/Osada": [[14.9,47.3]],
+  "REALM ARENA": [[47,49]],
+  "Sídliště": [[70.3,12.8],[76.1,15.2],[77,5.8],[70.2,4.3],[73.1,9.6],[75.2,20.1],[64.4,14.1]],
+  "Spawn Civilistů": [[56,63]],
+  "Spojovací": [[70,52]],
+  "Staroměstská": [[55,55]],
+  "Tunel": [[41,31]],
+  "U Jednoty": [[80,87]],
+  "U Letiště": [[62,8],[63.2,5.9],[65.3,4.5],[63.6,10],[64.6,8.4],[66.2,6.3]],
+  "U Malých rozjezdů": [],
+  "U školy": [[45,35]],
+  "U Závodního okruhu": [[65,26]],
+  "Úzká": [[54.5,36.5],[56.6,38.3],[58.2,39.6],[60.2,41.2],[61.1,43.9],[52.1,35.2],[49.6,35.1],[48,35.8],[61,45.9]],
+  "Závodní okruh": [[64.1,22.4],[67.1,21.7],[68.9,17.9],[66,18.8],[67.7,14.1]]
+};
+
+// ==========================================
+// 1. INICIALIZACE SUPABASE
+// ==========================================
+const SUPABASE_URL = "https://yofxfqyzvfecalfznafv.supabase.co";
+const SUPABASE_KEY = "sb_publishable_mN8BIm4AiJo1auNnok-kcg_zOaf6l0k";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let vyjezdy = [];
+let editovanyId = null;
+let prihlasenyUzivatel = null;
+let archivDataCache = [];
+let aktivniWaypoint = null;
+
+// ==========================================
+// 2. PŘIHLAŠOVÁNÍ (Supabase Auth + tabulka "profiles")
+// ==========================================
+// Heslo nikdy neprochází přes žádnou vlastní tabulku ani se nikam
+// neukládá v čitelné podobě — o to se stará přímo Supabase Auth.
+// "Uživatelské jméno" se interně mapuje na falešnou e-mailovou
+// adresu, protože Auth vyžaduje formát e-mailu.
+
+function jmenoNaEmail(jmeno){
+
+return jmeno.trim().toLowerCase().replace(/\s+/g,"_")+"@crrp.local";
+
+}
+
+async function nactiProfil(userId){
+
+const {data,error} =
+await sb
+.from("profiles")
+.select("*")
+.eq("id",userId)
+.single();
+
+if(error || !data) return null;
+
+return data;
+
+}
+
+async function ziskejNeboVytvorProfil(user){
+
+let profil = await nactiProfil(user.id);
+
+if(profil) return profil;
+
+// bezpečnostní síť: pokud profil ještě neexistuje (např. spoušť
+// handle_new_user selhala nebo se nestihla dokončit), založí se
+// rovnou tady — RLS zaručuje, že jde vytvořit jen VLASTNÍ profil
+// a vždy jako běžný uživatel (dispecer=false)
+const jmeno =
+(user.user_metadata && user.user_metadata.username) ||
+user.email.split("@")[0];
+
+await sb
+.from("profiles")
+.insert({id:user.id,username:jmeno,dispecer:false});
+
+return await nactiProfil(user.id);
+
+}
+
+async function inicializujAuth(){
+
+const {data:{session}} = await sb.auth.getSession();
+
+if(session){
+
+const profil = await ziskejNeboVytvorProfil(session.user);
+
+prihlasenyUzivatel = profil ? {
+id:session.user.id,
+email:profil.username,
+dispecer:profil.dispecer
+} : null;
+
+}else{
+
+prihlasenyUzivatel = null;
+
+}
+
+aktualizujAuthUI();
+
+}
+
+sb.auth.onAuthStateChange(async (_udalost,session)=>{
+
+if(session){
+
+const profil = await ziskejNeboVytvorProfil(session.user);
+
+prihlasenyUzivatel = profil ? {
+id:session.user.id,
+email:profil.username,
+dispecer:profil.dispecer
+} : null;
+
+}else{
+
+prihlasenyUzivatel = null;
+
+}
+
+aktualizujAuthUI();
+
+});
+
+function aktualizujAuthUI() {
+    const widget = document.getElementById("authWidget");
+    const formular = document.getElementById("formularVyjezdu");
+    const notice = document.getElementById("potrebaPrihlaseni");
+
+    if (prihlasenyUzivatel) {
+        const role = prihlasenyUzivatel.dispecer ? "(Dispečer)" : "(Hasič)";
+        widget.innerHTML = `
+            <span class="prihlaseny-email">${prihlasenyUzivatel.email} <b>${role}</b></span>
+            <button class="odhlasit-btn" onclick="odhlasit()">Odhlásit se</button>
+        `;
+
+        if (prihlasenyUzivatel.dispecer) {
+            formular.style.display = "block";
+            notice.style.display = "none";
+        } else {
+            formular.style.display = "none";
+            notice.style.display = "block";
+            notice.innerHTML = "Jste přihlášeni. Pro vyhlašování výjezdů vám musí administrátor přidělit roli Dispečera.";
+        }
+    } else {
+        widget.innerHTML = `<button onclick="otevriPrihlaseniModal()">Přihlásit se</button>`;
+        formular.style.display = "none";
+        notice.style.display = "block";
+        notice.innerHTML = `
+            Pro vyhlašování a správu výjezdů se musíte přihlásit.
+            <button onclick="otevriPrihlaseniModal()">Přihlásit se</button>
+        `;
+    }
+    
+    // Překreslení výjezdů, aby se zobrazila/skryla tlačítka podle oprávnění
+    vykresliVyjezdy();
+    if(document.getElementById("archivModal").style.display === "block") {
+        vykresliArchivModal();
+    }
+}
+
+function otevriPrihlaseniModal() {
+    document.getElementById("prihlaseniChyba").style.display = "none";
+    document.getElementById("prihlaseniEmail").value = "";
+    document.getElementById("prihlaseniHeslo").value = "";
+    document.getElementById("prihlaseniModal").style.display = "block";
+}
+
+function zavriModal(id) {
+    document.getElementById(id).style.display = "none";
+}
+
+async function provestPrihlaseni() {
+    const jmeno = document.getElementById("prihlaseniEmail").value.trim();
+    const heslo = document.getElementById("prihlaseniHeslo").value;
+    const chybaEl = document.getElementById("prihlaseniChyba");
+    chybaEl.style.display = "none";
+
+    if (!jmeno || !heslo) {
+        chybaEl.textContent = "Vyplňte uživatelské jméno a heslo.";
+        chybaEl.style.display = "block";
+        return;
+    }
+
+    const { error } = await sb.auth.signInWithPassword({
+        email: jmenoNaEmail(jmeno),
+        password: heslo
+    });
+
+    if (error) {
+        chybaEl.textContent = "Špatné uživatelské jméno nebo heslo.";
+        chybaEl.style.display = "block";
+        return;
+    }
+
+    zavriModal("prihlaseniModal");
+}
+
+async function provestRegistraci() {
+    const jmeno = document.getElementById("prihlaseniEmail").value.trim();
+    const heslo = document.getElementById("prihlaseniHeslo").value;
+    const chybaEl = document.getElementById("prihlaseniChyba");
+    chybaEl.style.display = "none";
+
+    if (!jmeno || !heslo) {
+        chybaEl.textContent = "Pro registraci vyplňte uživatelské jméno i heslo.";
+        chybaEl.style.display = "block";
+        return;
+    }
+
+    if (heslo.length < 6) {
+        chybaEl.textContent = "Heslo musí mít alespoň 6 znaků.";
+        chybaEl.style.display = "block";
+        return;
+    }
+
+    const { data, error } = await sb.auth.signUp({
+        email: jmenoNaEmail(jmeno),
+        password: heslo,
+        options: { data: { username: jmeno } }
+    });
+
+    if (error) {
+        chybaEl.textContent = error.message.includes("already registered")
+            ? "Tento uživatel je již zaregistrován."
+            : "Chyba při registraci: " + error.message;
+        chybaEl.style.display = "block";
+        return;
+    }
+
+    zavriModal("prihlaseniModal");
+
+    if(data.session){
+        alert("Registrace úspěšná! Systém vás přihlásil jako běžného uživatele (Hasič). Roli Dispečera vám musí přidělit administrátor.");
+    }else{
+        alert("Registrace proběhla, ale nejste automaticky přihlášeni — účet zřejmě čeká na potvrzení e-mailu, což s tímto systémem nejde splnit. Požádejte administrátora, ať v Supabase (Authentication → Providers → Email) vypne \"Confirm email\".");
+    }
+}
+
+async function odhlasit() {
+    await sb.auth.signOut();
+}
+
+// Spuštění po načtení stránky
+inicializujAuth();
+
+// ==========================================
+// 3. LOGIKA APLIKACE A VÝJEZDŮ
+// ==========================================
+
+const typSelect = document.getElementById("typ");
+const podtypSelect = document.getElementById("podtyp");
+
+Object.keys(typyUdalosti).forEach(typ => {
+    const option = document.createElement("option");
+    option.value = typ;
+    option.textContent = typ;
+    typSelect.appendChild(option);
+});
+
+function aktualizujPodtypy() {
+    podtypSelect.innerHTML = "";
+    typyUdalosti[typSelect.value].forEach(p => {
+        const option = document.createElement("option");
+        option.value = p;
+        option.textContent = p;
+        podtypSelect.appendChild(option);
+    });
+}
+
+typSelect.addEventListener("change", aktualizujPodtypy);
+aktualizujPodtypy();
+
+const lokaceList = document.getElementById("lokaceList");
+lokace.forEach(l => {
+    const option = document.createElement("option");
+    option.value = l;
+    lokaceList.appendChild(option);
+});
+
+async function nactiVyjezdy() {
+    const {data, error} = await sb
+        .from("vyjezdy")
+        .select("*")
+        .eq("stav", "aktivní")
+        .order("id", {ascending: true});
+
+    if (error) {
+        alert("Nepodařilo se načíst výjezdy ze serveru: " + error.message);
+        return;
+    }
+    vyjezdy = data || [];
+    vykresliVyjezdy();
+}
+
+function primeneRealtimeZmenu(payload) {
+    if(payload.eventType === "INSERT") {
+        if(payload.new.stav === "aktivní" && !vyjezdy.some(v => v.id === payload.new.id)) {
+            vyjezdy.push(payload.new);
+        }
+    }
+    if(payload.eventType === "UPDATE") {
+        const index = vyjezdy.findIndex(v => v.id === payload.new.id);
+        if(payload.new.stav === "aktivní") {
+            if(index > -1) {
+                vyjezdy[index] = payload.new;
+            } else {
+                vyjezdy.push(payload.new);
+            }
+        } else if(index > -1) {
+            vyjezdy.splice(index,1);
+        }
+    }
+    if(payload.eventType === "DELETE") {
+        vyjezdy = vyjezdy.filter(v => v.id !== payload.old.id);
+    }
+    
+    vykresliVyjezdy();
+    if(document.getElementById("archivModal").style.display === "block") {
+        nactiArchiv();
+    }
+}
+
+sb.channel("vyjezdy-live")
+  .on("postgres_changes", {event: "*", schema: "public", table: "vyjezdy"}, primeneRealtimeZmenu)
+  .subscribe();
+
+nactiVyjezdy();
+
+function najdiNejblizsiLokaci(xPercent, yPercent, rect) {
+    let nejblizsiNazev = null;
+    let nejmensiVzdalenost = Infinity;
+    
+    for(const nazev in coords) {
+        coords[nazev].forEach(bod => {
+            const dx = (bod[0] - xPercent) / 100 * rect.width;
+            const dy = (bod[1] - yPercent) / 100 * rect.height;
+            const vzdalenost = Math.sqrt(dx*dx + dy*dy);
+            if(vzdalenost < nejmensiVzdalenost) {
+                nejmensiVzdalenost = vzdalenost;
+                nejblizsiNazev = nazev;
+            }
+        });
+    }
+    return nejblizsiNazev;
+}
+
+function mapaKlik(event) {
+    const img = document.querySelector(".map-image");
+    const rect = img.getBoundingClientRect();
+    
+    let xPercent = ((event.clientX - rect.left) / rect.width) * 100;
+    let yPercent = ((event.clientY - rect.top) / rect.height) * 100;
+    
+    xPercent = Math.max(0, Math.min(100, xPercent));
+    yPercent = Math.max(0, Math.min(100, yPercent));
+    
+    const nejblizsi = najdiNejblizsiLokaci(xPercent, yPercent, rect);
+    
+    aktivniWaypoint = { x: xPercent, y: yPercent, nazev: nejblizsi };
+    document.getElementById("lokace").value = "≈ " + nejblizsi;
+    vykresliWaypoint();
+}
+
+function vykresliWaypoint() {
+    const vrstva = document.getElementById("waypointLayer");
+    const tlacitko = document.getElementById("clearWaypointBtn");
+    vrstva.innerHTML = "";
+    
+    if(!aktivniWaypoint) {
+        tlacitko.style.display = "none";
+        return;
+    }
+    
+    const wrapper = document.createElement("div");
+    wrapper.className = "waypoint-wrapper";
+    wrapper.style.left = aktivniWaypoint.x + "%";
+    wrapper.style.top = aktivniWaypoint.y + "%";
+    wrapper.title = "Klikněte pro zrušení waypointu";
+    
+    wrapper.innerHTML = `
+        <div class="waypoint-label">≈ ${aktivniWaypoint.nazev}</div>
+        <div class="waypoint-marker">📍</div>
+    `;
+    
+    wrapper.onclick = (e) => {
+        e.stopPropagation();
+        zrusitWaypoint();
+    };
+    
+    vrstva.appendChild(wrapper);
+    tlacitko.style.display = "block";
+}
+
+function zrusitWaypoint() {
+    aktivniWaypoint = null;
+    document.getElementById("lokace").value = "";
+    vykresliWaypoint();
+}
+
+document.querySelector(".map-image").addEventListener("click", mapaKlik);
+document.getElementById("lokace").addEventListener("input", function() {
+    const hodnota = this.value.trim();
+    if(hodnota === "") {
+        zrusitWaypoint();
+        return;
+    }
+    if(coords[hodnota] && coords[hodnota].length) {
+        aktivniWaypoint = {
+            x: coords[hodnota][0][0],
+            y: coords[hodnota][0][1],
+            nazev: hodnota
+        };
+        vykresliWaypoint();
+    }
+});
+
+function vratIkonu(typ) {
+    // Výchozí obrázek pro nedefinované typy
+    let cesta = "Otazník.png"; 
+    
+    if (typ === "POŽÁR") {
+        cesta = "Požár.png";
+    } else if (typ === "DOPRAVNÍ NEHODA") {
+        cesta = "Dopravní nehoda.png";
+    } else if (typ === "ÚNIK NEBEZPEČNÝCH LÁTEK") {
+        cesta = "Únik nebezpečných látek.png";
+    } else if (typ === "TECHNICKÁ POMOC") {
+        cesta = "Technická pomoc.png";
+    } else if (typ === "ZÁCHRANA OSOB A ZVÍŘAT") {
+        cesta = "Záchrana osob a zvířat.png";
+    }
+
+    // Vrátí HTML značku s odkazem na soubor a přidá třídu pro CSS formátování
+    return `<img src="${cesta}" class="mapova-ikona" alt="${typ}">`;
+}
+
+async function pridatVyjezd() {
+    if(!prihlasenyUzivatel || !prihlasenyUzivatel.dispecer) {
+        alert("Pro tuto akci nemáte oprávnění (vyžadována role Dispečer).");
+        return;
+    }
+
+    const tlacitko = document.getElementById("tlacitkoOdeslat");
+    tlacitko.disabled = true;
+    let chyba = null;
+
+    if(editovanyId) {
+        const zmeny = {
+            typ: document.getElementById("typ").value,
+            podtyp: document.getElementById("podtyp").value,
+            technika: document.getElementById("technika").value,
+            lokace: document.getElementById("lokace").value,
+            lokaceX: aktivniWaypoint ? aktivniWaypoint.x : null,
+            lokaceY: aktivniWaypoint ? aktivniWaypoint.y : null,
+            poznamka: document.getElementById("poznamka").value,
+            clenove: document.getElementById("clenove").value
+        };
+        
+        const vysledek = await sb.from("vyjezdy").update(zmeny).eq("id", editovanyId);
+        chyba = vysledek.error;
+    } else {
+        const vyjezd = {
+            typ: document.getElementById("typ").value,
+            podtyp: document.getElementById("podtyp").value,
+            technika: document.getElementById("technika").value,
+            lokace: document.getElementById("lokace").value,
+            lokaceX: aktivniWaypoint ? aktivniWaypoint.x : null,
+            lokaceY: aktivniWaypoint ? aktivniWaypoint.y : null,
+            poznamka: document.getElementById("poznamka").value,
+            clenove: document.getElementById("clenove").value,
+            stav: "aktivní",
+            casVyhlaseni: new Date().toLocaleString("cs-CZ")
+        };
+        
+        const vysledek = await sb.from("vyjezdy").insert(vyjezd);
+        chyba = vysledek.error;
+    }
+
+    tlacitko.disabled = false;
+    
+    if(chyba) {
+        alert("Nepodařilo se odeslat výjezd na server: " + chyba.message);
+        return;
+    }
+    
+    editovanyId = null;
+    tlacitko.textContent = "Vyhlásit výjezd";
+    document.getElementById("tlacitkoZrusitEditaci").style.display = "none";
+    
+    document.getElementById("technika").value = "";
+    document.getElementById("poznamka").value = "";
+    document.getElementById("clenove").value = "";
+    zrusitWaypoint();
+}
+
+function zrusEditaci() {
+    editovanyId = null;
+    document.getElementById("technika").value = "";
+    document.getElementById("lokace").value = "";
+    document.getElementById("poznamka").value = "";
+    document.getElementById("clenove").value = "";
+    zrusitWaypoint();
+    
+    document.getElementById("tlacitkoOdeslat").textContent = "Vyhlásit výjezd";
+    document.getElementById("tlacitkoZrusitEditaci").style.display = "none";
+}
+
+function vykresliVyjezdy() {
+    const aktivni = document.getElementById("aktivni");
+    const markers = document.getElementById("markers");
+    
+    aktivni.innerHTML = "";
+    markers.innerHTML = "";
+    
+    vyjezdy.forEach(v => {
+        // Kontrola oprávnění pro tlačítka editace a ukončení (zobrazí se pouze dispečerovi)
+        const spravaTlacitka = (prihlasenyUzivatel && prihlasenyUzivatel.dispecer) ? `
+            <button onclick="editovatVyjezd(${v.id})">Editovat</button>
+            <button onclick="ukoncitVyjezd(${v.id})">Ukončit</button>
+        ` : "";
+        
+        aktivni.innerHTML += `
+            <div class="dispatch-card" data-typ="${v.typ}">
+                <b>${v.typ}</b><br>${v.podtyp}<br><br>
+                📍 ${v.lokace}<br>
+                🚒 ${v.technika}<br>
+                📝 ${v.poznamka || "Neuvedeno"}<br>
+                🕒 ${v.casVyhlaseni}<br><br>
+                <span class="badge-active">AKTIVNÍ</span><br><br>
+                <button onclick="detailVyjezdu(${v.id})">Detail</button>
+                ${spravaTlacitka}
+            </div>
+        `;
+        
+        let poziceX = null;
+        let poziceY = null;
+        
+        if(v.lokaceX != null && v.lokaceY != null) {
+            poziceX = v.lokaceX;
+            poziceY = v.lokaceY;
+        } else if(coords[v.lokace] && coords[v.lokace].length) {
+            poziceX = coords[v.lokace][0][0];
+            poziceY = coords[v.lokace][0][1];
+        }
+        
+        if(poziceX != null) {
+            const marker = document.createElement("div");
+            marker.className = "marker";
+            marker.dataset.typ = v.typ;
+            marker.innerHTML = vratIkonu(v.typ);
+            marker.style.left = poziceX + "%";
+            marker.style.top = poziceY + "%";
+            marker.onclick = () => { detailVyjezdu(v.id); };
+            markers.appendChild(marker);
+        }
+    });
+    
+    aplikujFiltry();
+}
+
+async function ukoncitVyjezd(id) {
+    if(!prihlasenyUzivatel || !prihlasenyUzivatel.dispecer) {
+        alert("Pro tuto akci nemáte oprávnění (vyžadována role Dispečer).");
+        return;
+    }
+    
+    const {error} = await sb
+        .from("vyjezdy")
+        .update({
+            stav: "ukončen",
+            casUkonceni: new Date().toLocaleString("cs-CZ"),
+            ukonceno_at: new Date().toISOString()
+        })
+        .eq("id", id);
+        
+    if(error) {
+        alert("Nepodařilo se ukončit výjezd: " + error.message);
+    }
+}
+
+function editovatVyjezd(id) {
+    if(!prihlasenyUzivatel || !prihlasenyUzivatel.dispecer) {
+        alert("Pro tuto akci nemáte oprávnění (vyžadována role Dispečer).");
+        return;
+    }
+    
+    const vyjezd = vyjezdy.find(v => v.id === id);
+    if(!vyjezd) return;
+    
+    document.getElementById("typ").value = vyjezd.typ;
+    aktualizujPodtypy();
+    document.getElementById("podtyp").value = vyjezd.podtyp;
+    document.getElementById("technika").value = vyjezd.technika;
+    document.getElementById("lokace").value = vyjezd.lokace;
+    document.getElementById("poznamka").value = vyjezd.poznamka;
+    document.getElementById("clenove").value = vyjezd.clenove;
+    
+    if(vyjezd.lokaceX != null && vyjezd.lokaceY != null) {
+        aktivniWaypoint = {
+            x: vyjezd.lokaceX,
+            y: vyjezd.lokaceY,
+            nazev: vyjezd.lokace.replace(/^≈\s*/, "")
+        };
+        vykresliWaypoint();
+    } else if(coords[vyjezd.lokace] && coords[vyjezd.lokace].length) {
+        aktivniWaypoint = {
+            x: coords[vyjezd.lokace][0][0],
+            y: coords[vyjezd.lokace][0][1],
+            nazev: vyjezd.lokace
+        };
+        vykresliWaypoint();
+    }
+    
+    editovanyId = id;
+    document.getElementById("tlacitkoOdeslat").textContent = "Uložit změny";
+    document.getElementById("tlacitkoZrusitEditaci").style.display = "block";
+    window.scrollTo({top: 0, behavior: "smooth"});
+}
+
+function detailVyjezdu(id) {
+    const vyjezd = vyjezdy.find(v => v.id === id) || archivDataCache.find(v => v.id === id);
+    if(!vyjezd) return;
+    
+    document.getElementById("detailObsah").innerHTML = `
+        <p><b>Typ události:</b><br>${vyjezd.typ}</p><br>
+        <p><b>Podtyp události:</b><br>${vyjezd.podtyp}</p><br>
+        <p><b>Technika:</b><br>${vyjezd.technika}</p><br>
+        <p><b>Lokace:</b><br>${vyjezd.lokace}</p><br>
+        <p><b>Poznámka:</b><br>${vyjezd.poznamka || "-"}</p><br>
+        <p><b>Zasahující hasiči:</b><br>${vyjezd.clenove || "-"}</p><br>
+        <p><b>Vyhlášeno:</b><br>${vyjezd.casVyhlaseni}</p><br>
+        <p><b>Stav:</b><br>${vyjezd.stav}</p>
+        ${vyjezd.casUkonceni ? `<br><p><b>Ukončeno:</b><br>${vyjezd.casUkonceni}</p>` : ""}
+    `;
+    
+    document.getElementById("detailModal").style.display = "block";
+}
+
+function zavriDetail() {
+    document.getElementById("detailModal").style.display = "none";
+}
+
+window.onclick = function(event) {
+    ["detailModal", "prihlaseniModal", "archivModal"].forEach(id => {
+        const modal = document.getElementById(id);
+        if(event.target === modal) {
+            modal.style.display = "none";
+        }
+    });
+};
+
+document.getElementById("filterTyp").addEventListener("change", aplikujFiltry);
+[document.getElementById("filterTyp"), document.getElementById("archivTyp")].forEach(select => {
+    Object.keys(typyUdalosti).forEach(typ => {
+        const option = document.createElement("option");
+        option.value = typ;
+        option.textContent = typ;
+        select.appendChild(option);
+    });
+});
+
+function aplikujFiltry() {
+    const filtrTyp = document.getElementById("filterTyp").value;
+    const karty = document.querySelectorAll("#aktivni .dispatch-card");
+    const znacky = document.querySelectorAll("#markers .marker");
+    
+    karty.forEach(karta => {
+        const zobrazit = !filtrTyp || karta.dataset.typ === filtrTyp;
+        karta.style.display = zobrazit ? "block" : "none";
+    });
+
+    znacky.forEach(znacka => {
+        const zobrazit = !filtrTyp || znacka.dataset.typ === filtrTyp;
+        znacka.style.display = zobrazit ? "block" : "none";
+    });
+}
+
+function smazatVyjezd(id) {
+    if(!prihlasenyUzivatel || !prihlasenyUzivatel.dispecer) {
+        alert("Pro tuto akci nemáte oprávnění (vyžadována role Dispečer).");
+        return;
+    }
+    
+    const vyjezd = archivDataCache.find(v => v.id === id);
+    if(!vyjezd) return;
+    
+    if(vyjezd.stav !== "ukončen") {
+        alert("Lze smazat pouze ukončený výjezd.");
+        return;
+    }
+    
+    if(confirm("Opravdu chcete smazat tento výjezd?")) {
+        sb.from("vyjezdy").delete().eq("id", id).then(({error}) => {
+            if(error) {
+                alert("Nepodařilo se smazat výjezd: " + error.message);
+                return;
+            }
+            nactiArchiv();
+        });
+    }
+}
+
+// ==========================================
+// ARCHIV UKONČENÝCH VÝJEZDŮ
+// ==========================================
+
+async function otevriArchivModal() {
+    document.getElementById("archivModal").style.display = "block";
+    document.getElementById("archivSeznam").innerHTML = `<div style="color:#5c6779;text-align:center;padding:20px;">Načítání…</div>`;
+    await nactiArchiv();
+}
+
+async function nactiArchiv() {
+    const {data, error} = await sb
+        .from("vyjezdy")
+        .select("*")
+        .eq("stav", "ukončen")
+        .order("ukonceno_at", {ascending: false})
+        .limit(1000);
+        
+    if(error) {
+        document.getElementById("archivSeznam").innerHTML = `<div style="color:#ff8080;text-align:center;padding:20px;">Nepodařilo se načíst archiv: ${error.message}</div>`;
+        return;
+    }
+    archivDataCache = data || [];
+    vykresliArchivModal();
+}
+
+function ziskejDatumString(isoRetezec) {
+    if(!isoRetezec) return null;
+    const d = new Date(isoRetezec);
+    const rok = d.getFullYear();
+    const mesic = String(d.getMonth() + 1).padStart(2, "0");
+    const den = String(d.getDate()).padStart(2, "0");
+    return `${rok}-${mesic}-${den}`;
+}
+
+function vycistiArchivFiltr() {
+    document.getElementById("archivDatumOd").value = "";
+    document.getElementById("archivDatumDo").value = "";
+    document.getElementById("archivTyp").value = "";
+    vykresliArchivModal();
+}
+
+function vykresliArchivModal() {
+    const datumOd = document.getElementById("archivDatumOd").value;
+    const datumDo = document.getElementById("archivDatumDo").value;
+    const vybranyTyp = document.getElementById("archivTyp").value;
+    
+    const filtrovane = archivDataCache.filter(v => {
+        const datumStr = ziskejDatumString(v.ukonceno_at);
+        
+        // Kontrola rozmezí dat
+        if(datumOd && (!datumStr || datumStr < datumOd)) return false;
+        if(datumDo && (!datumStr || datumStr > datumDo)) return false;
+        
+        // Kontrola typu události
+        if(vybranyTyp && v.typ !== vybranyTyp) return false;
+        
+        return true;
+    });
+
+    vykresliArchivNaMape(filtrovane);
+    
+    const seznam = document.getElementById("archivSeznam");
+    
+    if(filtrovane.length === 0) {
+        seznam.innerHTML = `<div style="color:#5c6779;text-align:center;padding:20px;">Žádné ukončené výjezdy neodpovídají filtru.</div>`;
+        return;
+    }
+    
+    seznam.innerHTML = filtrovane.map(v => `
+        <div class="dispatch-card">
+            <b>${v.typ}</b><br>${v.podtyp}<br><br>
+            📍 ${v.lokace}<br>
+            🚒 ${v.technika}<br>
+            📝 ${v.poznamka || "Neuvedeno"}<br>
+            🕒 ${v.casVyhlaseni}<br>
+            🏁 ${v.casUkonceni || "-"}<br><br>
+            <span class="badge-ended">UKONČEN</span><br><br>
+            <button onclick="detailVyjezdu(${v.id})">Detail</button>
+            ${(prihlasenyUzivatel && prihlasenyUzivatel.dispecer) ? `<button onclick="smazatVyjezd(${v.id})">Smazat</button>` : ""}
+        </div>
+    `).join("");
+}
+
+function vykresliArchivNaMape(filtrovane) {
+    const vrstva = document.getElementById("archivMarkers");
+    const info = document.getElementById("archivMapaInfo");
+
+    vrstva.innerHTML = "";
+
+    const sPozici = filtrovane.filter(v => {
+        if(v.lokaceX != null && v.lokaceY != null) return true;
+        return coords[v.lokace] && coords[v.lokace].length;
+    });
+
+    if(sPozici.length === 0) {
+        info.style.display = "none";
+        return;
+    }
+
+    sPozici.forEach(v => {
+        let poziceX = v.lokaceX;
+        let poziceY = v.lokaceY;
+
+        if(poziceX == null || poziceY == null) {
+            poziceX = coords[v.lokace][0][0];
+            poziceY = coords[v.lokace][0][1];
+        }
+
+        const marker = document.createElement("div");
+        marker.className = "marker-archiv";
+        marker.innerHTML = vratIkonu(v.typ);
+        marker.title = `${v.typ} · ${v.lokace} · ukončeno ${v.casUkonceni || ""}`;
+        marker.style.left = poziceX + "%";
+        marker.style.top = poziceY + "%";
+        marker.onclick = () => { detailVyjezdu(v.id); };
+        vrstva.appendChild(marker);
+    });
+
+    info.innerHTML = `
+        🕘 Zobrazeno ${sPozici.length} archivních výjezdů na mapě
+        <button onclick="skryjArchivZMapy()">Skrýt z mapy</button>
+    `;
+    info.style.display = "flex";
+}
+
+function skryjArchivZMapy() {
+    document.getElementById("archivMarkers").innerHTML = "";
+    document.getElementById("archivMapaInfo").style.display = "none";
+}
+</script>
+<div class="footer-signature" style="text-align:center; padding:15px; color:#5c6779; font-size:12px;">
+    by marmal228, modified by Gallet
+</div>
+</body>
+</html>
